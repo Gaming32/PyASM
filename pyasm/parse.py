@@ -7,7 +7,13 @@ from pyasm import objasm
 fns = {
     'jump': 'jmp',
     'call': 'jsr',
-    'add': 'adc',
+    'add_memory': 'adc',
+    'increment_memory': 'inc',
+
+    'branch_plus': 'bpl',
+    'branch_minus': 'bmi',
+    'branch_eq': 'beq',
+    'branch_ne': 'bne',
 }
 
 immfns = {
@@ -18,17 +24,27 @@ immfns = {
     ]
 }
 
+dirimmfns = {
+    'add_value': 'adc'
+}
+
 regfns = {
     'load_address': [
-        'lda',
         'ldx',
         'ldy',
+        'lda',
+        None
+    ],
+    'increment_register': [
+        'inx',
+        'iny',
+        None,
         None
     ],
     'store_register': [
-        'sta',
         'stx',
         'sty',
+        'sta',
         None
     ],
     'push': [
@@ -42,6 +58,13 @@ regfns = {
         None,
         'pla',
         'plp'
+    ],
+
+    'compare': [
+        'cpx',
+        'cpy',
+        'cmp',
+        None
     ]
 }
 
@@ -64,8 +87,19 @@ def _fill_macro(macro: list[objasm.OpCode], args: dict[str, str]):
     for item in macro:
         item_copy = objasm.OpCode(**item.get_parts())
         for (i, arg) in enumerate(item_copy.args):
+            adds = ''
             if type(arg) == list:
-                item_copy.args[i] = arg[1] + args[arg[0]]
+                while arg[0] in args and type(args[arg[0]]) == list:
+                    adds += arg[1]
+                    arg = args[arg[0]]
+                if arg[0] in args:
+                    adds += arg[1]
+                    arg = args[arg[0]] 
+            if type(arg) == list:
+                arg[1] = adds + arg[1]
+                item_copy.args[i] = arg
+            else:
+                item_copy.args[i] = adds + arg
         copy.append(item_copy)
     return copy
 
@@ -76,6 +110,15 @@ def _parse_pycall(call: ast.Call, macros: dict, macargs) -> list[objasm.OpCode]:
     elif fname in fns:
         args = [_parse_arg(arg, macargs) for arg in call.args]
         return [objasm.OpCode(op=fns[fname], args=args)]
+    elif fname in dirimmfns:
+        args = []
+        for arg in call.args:
+            args.append(_parse_arg(arg, macargs))
+            if type(args[-1]) == list:
+                args[-1][1] = '#'
+            else:
+                args[-1] = '#' + args[-1]
+        return [objasm.OpCode(op=dirimmfns[fname], args=args)]
     elif fname in regfns:
         regstr = call.args[0].id
         opix = {
