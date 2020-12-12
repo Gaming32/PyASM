@@ -1,0 +1,21 @@
+from pyasm.stubs import *
+
+
+@inline_macro
+def square(x):
+    load_immediate(regx, x)
+    load_immediate(regy, x)
+    call(multiply)
+
+
+def start():
+    square(5)
+    store_register(accum, )
+    halt()
+
+
+def multiply():
+    return
+
+
+reserve_label('result')
