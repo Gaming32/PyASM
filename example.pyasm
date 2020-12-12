@@ -25,16 +25,15 @@ def multiply():
     store_register(regy, 0xff)
     load_immediate(regx, 0)
     load_immediate(accum, 0)
-    jump(_work_multiply_start)
 
 def _work_multpily_start():
     compare(regx, 0xff)
-    branch_eq(_end_multiply)
-    jump(_work_multiply_loop)
+    branch_ne(_work_multiply_loop)
+    jump(_end_multiply)
 
 def _work_multiply_loop():
     add_memory(0xfe)
-    increment_memory(0xff)
+    increment_register(regx)
     jump(_work_multiply_start)
 
 def _end_multiply():
