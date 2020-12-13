@@ -1,4 +1,7 @@
 import ast
+import os
+import sys
+import glob
 from typing import Union
 
 from pyasm import errors, objasm
@@ -202,7 +205,27 @@ def _parse_function(fn: ast.FunctionDef, macros: dict, ismacro=False) -> objasm.
     return result
 
 
-def parse(root: ast.Module) -> objasm.Program:
+MODULE_PATH = [
+    '.',
+    os.path.join(os.path.dirname(__file__), 'builtin-modules')
+]
+
+MODULE_EXTS = ['.pyasm', '.py']
+
+def find_module(name: str) -> Union[str, None]:
+    for dirname in MODULE_PATH + sys.path:
+        for ext in MODULE_EXTS:
+            patt = os.path.join(dirname, name + ext)
+            for filepath in glob.iglob(patt):
+                return filepath
+    return None
+
+
+MacroDict = dict[str, Macro]
+LabelList = list[str]
+
+
+def parse2(root: ast.Module) -> tuple[objasm.Program, MacroDict, LabelList]:
     result = objasm.Program(labels=[])
     reserved_labels = []
     macros = {}
@@ -210,6 +233,15 @@ def parse(root: ast.Module) -> objasm.Program:
         if type(branch) == ast.ImportFrom:
             if branch.module == 'pyasm.stubs':
                 continue
+            elif (filepath := find_module(branch.module)) is not None:
+                with open(filepath, 'r') as fp:
+                    new_module = ast.parse(fp.read(), filepath)
+                new_result, new_macros, new_reserved = parse2(new_module)
+                result.labels.extend(new_result.labels)
+                macros.update(new_macros)
+                reserved_labels.extend(new_reserved)
+            else:
+                raise errors.NoModuleError.create_custom(branch.module, branch.lineno)
         elif type(branch) == ast.FunctionDef:
             macro = False
             for dec in branch.decorator_list:
@@ -243,6 +275,11 @@ def parse(root: ast.Module) -> objasm.Program:
                 branch.col_offset,
                 branch
             )
+    return result, macros, reserved_labels
+
+
+def parse(root: ast.Module) -> objasm.Program:
+    result, macros, reserved_labels = parse2(root)
     result.labels.append(objasm.Label(name='___hlt___', codes=[]))
     for label in reserved_labels:
         result.labels.append(objasm.Label(name=label, codes=[]))

@@ -1,42 +1,11 @@
 from pyasm.stubs import *
-
-
-@inline_macro
-def mult(x, y):
-    load_immediate(regx, x)
-    load_immediate(regy, y)
-    call(multiply)
-
-
-@inline_macro
-def square(x):
-    mult(x, x)
+from math import *
 
 
 def start():
     square(5)
     store_register(accum, result)
     halt()
-
-
-def multiply():
-    store_register(regx, 0xfe)
-    store_register(regy, 0xff)
-    load_immediate(regx, 0)
-    load_immediate(accum, 0)
-
-def _work_multpily_start():
-    compare(regx, 0xff)
-    branch_ne(_work_multiply_loop)
-    jump(_end_multiply)
-
-def _work_multiply_loop():
-    add_memory(0xfe)
-    increment_register(regx)
-    jump(_work_multiply_start)
-
-def _end_multiply():
-    return
 
 
 reserve_label('result')
