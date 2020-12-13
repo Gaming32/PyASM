@@ -225,7 +225,7 @@ MacroDict = dict[str, Macro]
 LabelList = list[str]
 
 
-def parse2(root: ast.Module) -> tuple[objasm.Program, MacroDict, LabelList]:
+def parse2(root: ast.Module, _recurc: int = 0) -> tuple[objasm.Program, MacroDict, LabelList]:
     result = objasm.Program(labels=[])
     reserved_labels = []
     macros = {}
@@ -236,10 +236,14 @@ def parse2(root: ast.Module) -> tuple[objasm.Program, MacroDict, LabelList]:
             elif (filepath := find_module(branch.module)) is not None:
                 with open(filepath, 'r') as fp:
                     new_module = ast.parse(fp.read(), filepath)
-                new_result, new_macros, new_reserved = parse2(new_module)
+                result.labels.append(objasm.Label(name=f'___jts1_{_recurc}___', codes=[
+                    objasm.OpCode(op='jmp', args=[f'___jts2_{_recurc}___'])
+                ]))
+                new_result, new_macros, new_reserved = parse2(new_module, _recurc + 1)
                 result.labels.extend(new_result.labels)
                 macros.update(new_macros)
                 reserved_labels.extend(new_reserved)
+                result.labels.append(objasm.Label(name=f'___jts2_{_recurc}___', codes=[]))
             else:
                 raise errors.NoModuleError.create_custom(branch.module, branch.lineno)
         elif type(branch) == ast.FunctionDef:
