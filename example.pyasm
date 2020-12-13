@@ -8,14 +8,13 @@ def mult(x, y):
     call(multiply)
 
 
-# @inline_macro
-# def square(z):
-#     mult(z, z)
+@inline_macro
+def square(x):
+    mult(x, x)
 
 
 def start():
-    # square(5)
-    mult(6, 7)
+    square(5)
     store_register(accum, result)
     halt()
 

@@ -87,19 +87,26 @@ def _fill_macro(macro: list[objasm.OpCode], args: dict[str, str]):
     for item in macro:
         item_copy = objasm.OpCode(**item.get_parts())
         for (i, arg) in enumerate(item_copy.args):
-            adds = ''
             if type(arg) == list:
-                while arg[0] in args and type(args[arg[0]]) == list:
-                    adds += arg[1]
-                    arg = args[arg[0]]
-                if arg[0] in args:
-                    adds += arg[1]
-                    arg = args[arg[0]] 
-            if type(arg) == list:
-                arg[1] = adds + arg[1]
-                item_copy.args[i] = arg
-            else:
-                item_copy.args[i] = adds + arg
+                # newarg = 
+                if type(args[arg[0]]) == list:
+                    newarg = [args[arg[0]][0], arg[1] + args[arg[0]][1]]
+                else:
+                    newarg = arg[1] + args[arg[0]]
+                item_copy.args[i] = newarg
+            # adds = ''
+            # if type(arg) == list:
+            #     while arg[0] in args and type(args[arg[0]]) == list:
+            #         adds += arg[1]
+            #         arg = args[arg[0]]
+            #     if arg[0] in args:
+            #         adds += arg[1]
+            #         arg = args[arg[0]] 
+            # if type(arg) == list:
+            #     arg[1] = adds + arg[1]
+            #     item_copy.args[i] = arg
+            # else:
+            #     item_copy.args[i] = adds + arg
         copy.append(item_copy)
     return copy
 
