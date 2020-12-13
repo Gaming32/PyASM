@@ -1,3 +1,6 @@
+from _math_consts import *
+
+
 @inline_macro
 def mult(x, y):
     load_immediate(regx, x)
@@ -11,18 +14,18 @@ def square(x):
 
 
 def multiply():
-    store_register(regx, 0xfe)
-    store_register(regy, 0xff)
+    store_register(regx, MATH_MEMORY_REGe)
+    store_register(regy, MATH_MEMORY_REGf)
     load_immediate(regx, 0)
     load_immediate(accum, 0)
 
 def _work_multpily_start():
-    compare(regx, 0xff)
+    compare(regx, MATH_MEMORY_REGf)
     branch_ne(_work_multiply_loop)
     jump(_end_multiply)
 
 def _work_multiply_loop():
-    add_memory(0xfe)
+    add_memory(MATH_MEMORY_REGe)
     increment_register(regx)
     jump(_work_multiply_start)
 

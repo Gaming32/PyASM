@@ -1,7 +1,6 @@
 from pyasm.stubs import *
 from math import *
 
-
 def start():
     square(5)
     store_register(accum, result)
