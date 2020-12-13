@@ -1,8 +1,7 @@
 import ast
 from typing import Union
 
-from pyasm import objasm
-
+from pyasm import errors, objasm
 
 fns = {
     'jump': 'jmp',
@@ -94,21 +93,9 @@ def _fill_macro(macro: list[objasm.OpCode], args: dict[str, str]):
                 else:
                     newarg = arg[1] + args[arg[0]]
                 item_copy.args[i] = newarg
-            # adds = ''
-            # if type(arg) == list:
-            #     while arg[0] in args and type(args[arg[0]]) == list:
-            #         adds += arg[1]
-            #         arg = args[arg[0]]
-            #     if arg[0] in args:
-            #         adds += arg[1]
-            #         arg = args[arg[0]] 
-            # if type(arg) == list:
-            #     arg[1] = adds + arg[1]
-            #     item_copy.args[i] = arg
-            # else:
-            #     item_copy.args[i] = adds + arg
         copy.append(item_copy)
     return copy
+
 
 def _parse_pycall(call: ast.Call, macros: dict, macargs) -> list[objasm.OpCode]:
     fname = call.func.id
@@ -135,7 +122,12 @@ def _parse_pycall(call: ast.Call, macros: dict, macargs) -> list[objasm.OpCode]:
             'proc': 3
         }.get(regstr)
         if opix is None:
-            raise ValueError(f'unsupported register {call.args[0].id!r} for {fname!r}')
+            raise errors.UnsupportedFunctionOrElement.create_custom(
+                'register',
+                f' {call.args[0].id!r} for {fname!r}',
+                call.lineno,
+                fname
+            )
         args = [_parse_arg(arg, macargs) for arg in call.args[1:]]
         return [objasm.OpCode(op=regfns[fname][opix], args=args)]
     elif fname in immfns:
@@ -146,7 +138,12 @@ def _parse_pycall(call: ast.Call, macros: dict, macargs) -> list[objasm.OpCode]:
             'regy': 2
         }.get(regstr)
         if opix is None:
-            raise ValueError(f'unsupported register {call.args[0].id!r} for {fname!r}')
+            raise errors.UnsupportedFunctionOrElement.create_custom(
+                'register',
+                f' {call.args[0].id!r} for {fname!r}',
+                call.lineno,
+                fname
+            )
         args = []
         for arg in call.args[1:]:
             args.append(_parse_arg(arg, macargs))
@@ -158,7 +155,12 @@ def _parse_pycall(call: ast.Call, macros: dict, macargs) -> list[objasm.OpCode]:
     elif fname == 'halt':
         return [objasm.OpCode(op='jmp', args=['___hlt___'])]
     else:
-        raise ValueError(f'unsupported function: {fname!r}')
+        raise errors.UnsupportedFunctionOrElement.create_custom(
+            'function',
+            f': {fname!r}',
+            call.lineno,
+            fname
+        )
 
 
 def _parse_code(code: Union[ast.Expr, ast.Pass, ast.Return], macros: dict, macargs) -> list[objasm.OpCode]:
@@ -168,11 +170,21 @@ def _parse_code(code: Union[ast.Expr, ast.Pass, ast.Return], macros: dict, macar
         if isinstance(code.value, ast.Call):
             return _parse_pycall(code.value, macros, macargs)
         else:
-            raise TypeError(f'unsupported Expr.value type: {type(code.value).__name__!r}')
+            raise errors.UnsupportedSyntaxElement.create_custom(
+                'Expr.value',
+                code.value.lineno,
+                code.value.col_offset,
+                code.value
+            )
     elif isinstance(code, ast.Return):
         return [objasm.OpCode(op='rts', args=[])]
     else:
-        raise TypeError(f'unsupported code type: {type(code).__name__!r}')
+        raise errors.UnsupportedSyntaxElement.create_custom(
+            'code',
+            code.lineno,
+            code.col_offset,
+            code
+        )
 
 
 def _parse_function(fn: ast.FunctionDef, macros: dict, ismacro=False) -> objasm.Label:
@@ -211,11 +223,26 @@ def parse(root: ast.Module) -> objasm.Program:
                 if branch.value.func.id == 'reserve_label':
                     reserved_labels.append(branch.value.args[0].value)
                 else:
-                    raise ValueError(f'unsupported top-level function: {branch.value.name!r}')
+                    raise errors.UnsupportedFunctionOrElement.create_custom(
+                        'top-level function',
+                        f': {branch.value.func.id!r}',
+                        branch.value.lineno,
+                        branch.value.func.id
+                    )
             else:
-                raise TypeError(f'unsupported body type: {type(branch.value).__name__!r}')
+                raise errors.UnsupportedSyntaxElement.create_custom(
+                    'body',
+                    branch.value.lineno,
+                    branch.value.col_offset,
+                    branch.value
+                )
         else:
-            raise TypeError(f'unsupported body type: {type(branch).__name__!r}')
+            raise errors.UnsupportedSyntaxElement.create_custom(
+                'body',
+                branch.lineno,
+                branch.col_offset,
+                branch
+            )
     result.labels.append(objasm.Label(name='___hlt___', codes=[]))
     for label in reserved_labels:
         result.labels.append(objasm.Label(name=label, codes=[]))
